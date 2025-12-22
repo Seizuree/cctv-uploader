@@ -20,23 +20,22 @@ def merge_segments(seg_files, merged_path):
         "copy",
         merged_path,
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     return merged_path
 
 
-def cut_exact(merged_path, outpath, s, e):
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        merged_path,
-        "-ss",
-        s,
-        "-to",
-        e,
-        "-c",
-        "copy",
-        outpath,
-    ]
-    subprocess.run(cmd, check=True)
+def cut_exact(merged_path, outpath, start_offset, duration, exact_cut=False):
+    cmd = ["ffmpeg", "-y"]
+
+    cmd.extend(["-ss", str(start_offset)])
+    cmd.extend(["-i", merged_path])
+    cmd.extend(["-t", str(duration)])
+
+    if exact_cut:
+        cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23", "-c:a", "aac"])
+    else:
+        cmd.extend(["-c", "copy"])
+
+    cmd.append(outpath)
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     return outpath

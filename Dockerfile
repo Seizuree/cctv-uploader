@@ -1,6 +1,19 @@
 FROM python:3.10-slim
+
+# Install system dependencies
 RUN apt update && apt install -y ffmpeg
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
-COPY . /app
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["python3","main.py"]
+
+# Copy project files
+COPY pyproject.toml uv.lock ./
+COPY app ./app
+
+# Sync dependencies
+RUN uv sync --frozen --no-dev
+
+# Run the application
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
