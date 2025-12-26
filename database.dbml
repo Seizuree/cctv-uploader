@@ -1,0 +1,159 @@
+Project packing_cctv_monitoring {
+  database_type: "PostgreSQL"
+}
+
+/******************************************************************
+ * ENUMS
+ ******************************************************************/
+
+Enum enum_packing_status {
+  PENDING_START
+  PENDING_END
+  READY_FOR_BATCH
+  CLIP_GENERATED
+  ERROR
+}
+
+Enum enum_mini_clip_status {
+  PENDING   // sedang diproses/upload
+  UPLOADED  // berhasil diupload ke GCS
+  FAILED    // gagal proses/upload
+}
+
+Enum enum_batch_job_status {
+  RUNNING
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+Enum enum_batch_item_status {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+
+/******************************************************************
+ * LOGIN & USER
+ ******************************************************************/
+
+Table roles {
+  id          uuid      [pk, default: `gen_random_uuid()`]
+  name        varchar   [not null, unique] // SUPERADMIN / OPERATOR
+  description text
+
+  created_at  datetime  [not null]
+  updated_at  datetime  [not null]
+}
+
+Table users {
+  id            uuid      [pk, default: `gen_random_uuid()`]
+  username      varchar   [not null, unique]
+  password      varchar   [not null]
+  full_name     varchar
+  email         varchar
+  role_id       uuid      [not null, ref: > roles.id]
+  is_active     boolean   [not null, default: true]
+
+  created_at    datetime  [not null]
+  updated_at    datetime  [not null]
+}
+
+Table sessions {
+  id            uuid      [pk, default: `gen_random_uuid()`]
+  user_id       uuid      [not null, ref: > users.id]
+  session_token varchar   [not null, unique]
+
+  created_at    datetime  [not null]
+  expires_at    datetime  [not null]
+  revoked_at    datetime
+}
+
+/******************************************************************
+ * MASTER: CAMERA & WORKSTATION
+ ******************************************************************/
+
+Table cameras {
+  id                  uuid      [pk, default: `gen_random_uuid()`]
+  name                varchar   [not null]
+
+  // Hikvision credentials
+  base_url            varchar   [not null]  // e.g. http://192.168.1.10:80
+  username            varchar   [not null]
+  password            varchar   [not null]  // AES-256 encrypted
+
+  is_active           boolean   [not null, default: true]
+
+  created_at          datetime  [not null]
+  updated_at          datetime  [not null]
+}
+
+Table workstations {
+  id           uuid      [pk, default: `gen_random_uuid()`]
+  name         varchar
+  camera_id    uuid      [not null, unique, ref: > cameras.id]
+  is_active    boolean   [not null, default: true]
+  created_at   datetime  [not null]
+  updated_at   datetime  [not null]
+}
+
+/******************************************************************
+ * OPERASIONAL: PACKING
+ ******************************************************************/
+
+Table packing_items {
+  id             uuid                [pk, default: `gen_random_uuid()`]
+  barcode        varchar             [not null]
+
+  operator_id    uuid                [not null, ref: > users.id]
+  workstation_id uuid                [not null, ref: > workstations.id]
+
+  start_time     datetime            // waktu scan START
+  end_time       datetime            // waktu scan END
+
+  status         enum_packing_status [not null, default: 'PENDING_START']
+
+  created_at     datetime            [not null]
+  updated_at     datetime            [not null]
+}
+
+/******************************************************************
+ * VIDEO CLIP & BATCH JOB
+ ******************************************************************/
+
+Table mini_clips {
+  id              uuid                  [pk, default: `gen_random_uuid()`]
+  packing_item_id uuid                  [not null, unique, ref: > packing_items.id]
+  camera_id       uuid                  [not null, ref: > cameras.id]
+  storage_path    varchar               [not null]  // GCS path, e.g. cctv/cam01/xxx.mp4
+  duration_sec    int
+  filesize_bytes  bigint
+
+  generated_at    datetime              [not null]
+  status          enum_mini_clip_status [not null, default: 'PENDING']
+}
+
+Table batch_jobs {
+  id             uuid                  [pk, default: `gen_random_uuid()`]
+  started_at     datetime              [not null]
+  finished_at    datetime
+  status         enum_batch_job_status [not null, default: 'RUNNING']
+
+  total_items    int                   [not null, default: 0]
+  success_items  int                   [not null, default: 0]
+  failed_items   int                   [not null, default: 0]
+  error_message  text
+}
+
+Table batch_job_items {
+  id              uuid                   [pk, default: `gen_random_uuid()`]
+  batch_job_id    uuid                   [not null, ref: > batch_jobs.id]
+  packing_item_id uuid                   [not null, ref: > packing_items.id]
+
+  status          enum_batch_item_status [not null, default: 'PENDING']
+  error_message   text
+  started_at      datetime
+  finished_at     datetime
+}

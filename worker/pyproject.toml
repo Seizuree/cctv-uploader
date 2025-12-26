@@ -1,0 +1,33 @@
+[project]
+name = "cctv-worker"
+version = "0.1.0"
+description = "CCTV Packing Monitoring Worker - Video clipping and upload"
+requires-python = ">=3.10"
+dependencies = [
+    # Database
+    "sqlalchemy>=2.0",
+    "psycopg2-binary",
+    # Config
+    "pydantic>=2.0",
+    "pydantic-settings",
+    "python-dotenv",
+    # Security
+    "cryptography",
+    # Hikvision ISAPI
+    "requests",
+    # GCS upload (S3-compatible)
+    "boto3",
+    # HTTP API
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[project.scripts]
+worker = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["db", "services", "repositories", "jobs", "api", "config.py", "encryption.py", "main.py"]

@@ -1,4 +1,0 @@
-"""
-Repositories (data access layer).
-"""
-
