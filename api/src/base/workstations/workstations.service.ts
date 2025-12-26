@@ -1,10 +1,18 @@
-import { WorkstationRepository, type WorkstationWithCamera } from './workstations.repository'
+import { WorkstationRepository } from './workstations.repository'
 import { logging } from '../../logger'
 import { WORKSTATION_MESSAGES } from '../../constants/messages'
-import type { ApiResponse, PaginationApiResponse } from '../../types/response.types'
+import type {
+  ApiResponse,
+  PaginationApiResponse,
+} from '../../types/response.types'
 import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
-import type { CreateWorkstationRequest, UpdateWorkstationRequest, WorkstationResponse } from './workstations.types'
+import type {
+  CreateWorkstationRequest,
+  UpdateWorkstationRequest,
+  DeleteWorkstationRequest,
+} from './workstations.types'
+import { workstations } from '../../connection/db/schemas'
 
 export class WorkstationService {
   private workstationRepository: WorkstationRepository
@@ -13,7 +21,25 @@ export class WorkstationService {
     this.workstationRepository = new WorkstationRepository()
   }
 
-  async getById(id: number): Promise<ApiResponse<WorkstationResponse | undefined>> {
+  private async checkDuplicate(
+    camera_id?: string,
+    excludeId?: string
+  ): Promise<{ isDuplicate: boolean; field?: 'camera_id' }> {
+    if (camera_id) {
+      const existingByCameraId = (await this.workstationRepository.get({
+        camera_id,
+        select: { id: workstations.id },
+      })) as { id: string } | undefined
+
+      if (existingByCameraId && (!excludeId || existingByCameraId.id !== excludeId)) {
+        return { isDuplicate: true, field: 'camera_id' }
+      }
+    }
+
+    return { isDuplicate: false }
+  }
+
+  async getById(id: string): Promise<ApiResponse> {
     const workstation = await this.workstationRepository.get({ id })
 
     if (!workstation) {
@@ -35,7 +61,7 @@ export class WorkstationService {
 
   async getWithPagination(
     request: PaginationRequest
-  ): Promise<PaginationApiResponse<WorkstationWithCamera>> {
+  ): Promise<PaginationApiResponse> {
     const { data, count } = await this.workstationRepository.gets({
       pagination: request,
       search: request.search,
@@ -53,10 +79,21 @@ export class WorkstationService {
   }
 
   async create(data: CreateWorkstationRequest): Promise<ApiResponse> {
+    const duplicateCheck = await this.checkDuplicate(data.camera_id)
+
+    if (duplicateCheck.isDuplicate) {
+      logging.error(
+        `[Workstation Service] Workstation with ${duplicateCheck.field} '${data.camera_id}' already exists`
+      )
+      return {
+        statusCode: 400,
+        message: WORKSTATION_MESSAGES.ALREADY_EXISTS,
+      }
+    }
+
     const created = await this.workstationRepository.create({
       name: data.name,
       camera_id: data.camera_id,
-      is_active: data.is_active ?? true,
     })
 
     if (!created) {
@@ -67,7 +104,9 @@ export class WorkstationService {
       }
     }
 
-    logging.info(`[Workstation Service] Workstation created successfully: ${created.id}`)
+    logging.info(
+      `[Workstation Service] Workstation created successfully: ${created.id}`
+    )
 
     return {
       statusCode: 201,
@@ -75,8 +114,22 @@ export class WorkstationService {
     }
   }
 
-  async update(id: number, data: UpdateWorkstationRequest): Promise<ApiResponse> {
-    const existingWorkstation = await this.workstationRepository.get({ id })
+  async update(
+    id: string,
+    data: Partial<UpdateWorkstationRequest>
+  ): Promise<ApiResponse> {
+    const existingWorkstation = (await this.workstationRepository.get({
+      id,
+      select: {
+        id: workstations.id,
+        name: workstations.name,
+        camera_id: workstations.camera_id,
+      },
+    })) as {
+      id: string
+      name: string | null
+      camera_id: string
+    }
 
     if (!existingWorkstation) {
       logging.error(`[Workstation Service] Workstation with id ${id} not found`)
@@ -86,27 +139,35 @@ export class WorkstationService {
       }
     }
 
-    const updateData: Partial<{
-      name: string
-      camera_id: number
-      is_active: boolean
-    }> = {}
+    if (data.camera_id) {
+      const duplicateCheck = await this.checkDuplicate(data.camera_id, id)
 
-    if (data.name !== undefined) updateData.name = data.name
-    if (data.camera_id) updateData.camera_id = data.camera_id
-    if (data.is_active !== undefined) updateData.is_active = data.is_active
+      if (duplicateCheck.isDuplicate) {
+        logging.error(
+          `[Workstation Service] Workstation with ${duplicateCheck.field} '${data.camera_id}' already exists`
+        )
+        return {
+          statusCode: 400,
+          message: WORKSTATION_MESSAGES.ALREADY_EXISTS,
+        }
+      }
+    }
 
-    const updated = await this.workstationRepository.update(id, updateData)
+    const updated = await this.workstationRepository.update(id, data)
 
     if (!updated) {
-      logging.error(`[Workstation Service] Workstation with id ${id} could not be updated`)
+      logging.error(
+        `[Workstation Service] Workstation with id ${id} could not be updated`
+      )
       return {
         statusCode: 400,
         message: WORKSTATION_MESSAGES.COULD_NOT_UPDATE,
       }
     }
 
-    logging.info(`[Workstation Service] Workstation updated successfully: ${id}`)
+    logging.info(
+      `[Workstation Service] Workstation updated successfully: ${id}`
+    )
 
     return {
       statusCode: 200,
@@ -114,20 +175,26 @@ export class WorkstationService {
     }
   }
 
-  async delete(id: number): Promise<ApiResponse> {
-    const existingWorkstation = await this.workstationRepository.get({ id })
+  async delete(data: DeleteWorkstationRequest): Promise<ApiResponse> {
+    const existingWorkstation = await this.workstationRepository.get({
+      id: data.id,
+    })
 
     if (!existingWorkstation) {
-      logging.error(`[Workstation Service] Workstation with id ${id} not found`)
+      logging.error(
+        `[Workstation Service] Workstation with id ${data.id} not found`
+      )
       return {
         statusCode: 404,
         message: WORKSTATION_MESSAGES.NOT_FOUND,
       }
     }
 
-    await this.workstationRepository.delete(id)
+    await this.workstationRepository.delete(data)
 
-    logging.info(`[Workstation Service] Workstation deleted successfully: ${id}`)
+    logging.info(
+      `[Workstation Service] Workstation deleted successfully: ${data.id}`
+    )
 
     return {
       statusCode: 200,

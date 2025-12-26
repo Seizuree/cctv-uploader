@@ -6,7 +6,11 @@ import {
 import usersService from './users.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
-import { CreateUserSchema, UpdateUserSchema } from './users.types'
+import {
+  CreateUserSchema,
+  DeleteUserSchema,
+  UpdateUserSchema,
+} from './users.types'
 
 export class UsersController {
   async getById(c: Context) {
@@ -17,7 +21,8 @@ export class UsersController {
         return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const response = await usersService.getById(userId)
+      const id = c.req.param('id')
+      const response = await usersService.getById(id)
 
       if (!response.data) {
         return c.json(
@@ -121,7 +126,14 @@ export class UsersController {
 
   async create(c: Context) {
     try {
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const body = await c.req.json()
+      body.created_by = userId
       const validationResult = CreateUserSchema.safeParse(body)
 
       if (!validationResult.success) {
@@ -154,6 +166,12 @@ export class UsersController {
 
   async update(c: Context) {
     try {
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const id = c.req.param('id')
 
       if (!id) {
@@ -161,13 +179,15 @@ export class UsersController {
       }
 
       const body = await c.req.json()
+      body.updated_at = new Date()
+      body.updated_by = userId
 
       // Remove empty password
       if (body.password === '') {
         delete body.password
       }
 
-      const validationResult = UpdateUserSchema.safeParse(body)
+      const validationResult = await UpdateUserSchema.safeParseAsync(body)
 
       if (!validationResult.success) {
         logging.info(
@@ -199,13 +219,29 @@ export class UsersController {
 
   async delete(c: Context) {
     try {
-      const id = c.req.param('id')
+      const userId = c.get('jwtPayload').id
 
-      if (!id) {
-        return c.json(createErrorResponse('Invalid user ID', 400), 400)
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const response = await usersService.delete(id)
+      const requestData = { id: c.req.param('id') }
+
+      const validationResult = await DeleteUserSchema.safeParseAsync(
+        requestData
+      )
+
+      if (!validationResult.success) {
+        logging.info(`
+          [Users Controller] Request data: ${JSON.stringify(
+          validationResult.error?.message
+        )}
+        `)
+
+        return c.json(createErrorResponse('Invalid input', 400), 400)
+      }
+
+      const response = await usersService.delete(validationResult.data)
 
       if (response.statusCode !== 200) {
         return c.json(

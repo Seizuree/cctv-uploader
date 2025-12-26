@@ -7,7 +7,7 @@ import type {
 } from '../../types/response.types'
 import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
-import type { CreateUserRequest, UpdateUserRequest } from './users.types'
+import type { CreateUserRequest, DeleteUserRequest, UpdateUserRequest } from './users.types'
 import { hashPassword } from '../../utils/hash'
 import { users, roles } from '../../connection/db/schemas'
 
@@ -28,6 +28,36 @@ export class UserService {
 
   constructor() {
     this.userRepository = new UserRepository()
+  }
+
+  private async checkDuplicate(
+    name?: string,
+    email?: string,
+    excludeId?: string
+  ): Promise<{ isDuplicate: boolean; field?: 'name' | 'email' }> {
+    if (name) {
+      const existingByName = (await this.userRepository.get({
+        name,
+        select: { id: users.id },
+      })) as { id: string } | undefined
+
+      if (existingByName && (!excludeId || existingByName.id !== excludeId)) {
+        return { isDuplicate: true, field: 'name' }
+      }
+    }
+
+    if (email) {
+      const existingByEmail = (await this.userRepository.get({
+        email,
+        select: { id: users.id },
+      })) as { id: string } | undefined
+
+      if (existingByEmail && (!excludeId || existingByEmail.id !== excludeId)) {
+        return { isDuplicate: true, field: 'email' }
+      }
+    }
+
+    return { isDuplicate: false }
   }
 
   async getById(id: string): Promise<ApiResponse> {
@@ -115,12 +145,12 @@ export class UserService {
   }
 
   async create(data: CreateUserRequest): Promise<ApiResponse> {
-    const existingUser = await this.userRepository.get({
-      name: data.name,
-    })
+    const duplicateCheck = await this.checkDuplicate(data.name, data.email)
 
-    if (existingUser) {
-      logging.error(`[User Service] Username ${data.name} already exists`)
+    if (duplicateCheck.isDuplicate) {
+      logging.error(
+        `[User Service] User with ${duplicateCheck.field} '${duplicateCheck.field === 'name' ? data.name : data.email}' already exists`
+      )
       return {
         statusCode: 400,
         message: USER_MESSAGES.ALREADY_EXISTS,
@@ -128,9 +158,9 @@ export class UserService {
     }
 
     if (!data.password) {
-      logging.error(`[User Service] Password hashing failed`)
+      logging.error(`[User Service] Password is required`)
       return {
-        statusCode: 500,
+        statusCode: 400,
         message: USER_MESSAGES.COULD_NOT_CREATE,
       }
     }
@@ -164,49 +194,20 @@ export class UserService {
     id: string,
     data: Partial<UpdateUserRequest>
   ): Promise<ApiResponse> {
-    const getUser = await this.userRepository.get({
+    const existingUser = (await this.userRepository.get({
       id,
-    })
-
-    if (!getUser) {
-      logging.error(`
-        [User Service] User with id ${id} cannot be found.
-      `)
-      return {
-        statusCode: 404,
-        message: USER_MESSAGES.NOT_FOUND,
-      }
+      select: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role_id: users.role_id,
+      },
+    })) as {
+      id: string
+      name: string | null
+      email: string | null
+      role_id: string
     }
-
-    if (data.password) {
-      const hashedPassword = await hashPassword(data.password)
-      data.password = hashedPassword
-    }
-
-    const updateUser = await this.userRepository.update(id, data)
-
-    if (!updateUser) {
-      logging.error(`
-        [User Service] User with id ${id} could not be updated
-      `)
-      return {
-        statusCode: 400,
-        message: USER_MESSAGES.COULD_NOT_UPDATE,
-      }
-    }
-
-    logging.info(`
-      [User Service] User updated successfully
-    `)
-
-    return {
-      statusCode: 200,
-      message: USER_MESSAGES.UPDATED_SUCCESS,
-    }
-  }
-
-  async delete(id: string): Promise<ApiResponse> {
-    const existingUser = await this.userRepository.get({ id })
 
     if (!existingUser) {
       logging.error(`[User Service] User with id ${id} not found`)
@@ -216,9 +217,59 @@ export class UserService {
       }
     }
 
-    await this.userRepository.delete(id)
+    if (data.name || data.email) {
+      const duplicateCheck = await this.checkDuplicate(data.name, data.email, id)
 
-    logging.info(`[User Service] User deleted successfully: ${id}`)
+      if (duplicateCheck.isDuplicate) {
+        logging.error(
+          `[User Service] User with ${duplicateCheck.field} '${duplicateCheck.field === 'name' ? data.name : data.email}' already exists`
+        )
+        return {
+          statusCode: 400,
+          message: USER_MESSAGES.ALREADY_EXISTS,
+        }
+      }
+    }
+
+    if (data.password) {
+      const hashedPassword = await hashPassword(data.password)
+      data.password = hashedPassword
+    }
+
+    const updated = await this.userRepository.update(id, data)
+
+    if (!updated) {
+      logging.error(`[User Service] User with id ${id} could not be updated`)
+      return {
+        statusCode: 400,
+        message: USER_MESSAGES.COULD_NOT_UPDATE,
+      }
+    }
+
+    logging.info(`[User Service] User updated successfully: ${id}`)
+
+    return {
+      statusCode: 200,
+      message: USER_MESSAGES.UPDATED_SUCCESS,
+    }
+  }
+
+  async delete(data: DeleteUserRequest): Promise<ApiResponse> {
+    const existingUser = await this.userRepository.get({
+      id: data.id,
+    })
+
+    if (!existingUser) {
+      logging.error(`[User Service] User with id ${data.id} not found`)
+      return {
+        statusCode: 404,
+        message: USER_MESSAGES.NOT_FOUND,
+      }
+    }
+
+    await this.userRepository.delete(data)
+
+    logging.info(`[User Service] User deleted successfully`)
 
     return {
       statusCode: 200,

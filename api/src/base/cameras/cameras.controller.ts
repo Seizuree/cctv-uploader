@@ -3,7 +3,7 @@ import {
   createErrorResponse,
   createSuccessResponse,
 } from '../../types/response.types'
-import camerasService, { CameraService } from './cameras.service'
+import camerasService from './cameras.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
 import {
@@ -15,13 +15,15 @@ import {
 export class CamerasController {
   async getById(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload').id
 
-      if (isNaN(id)) {
-        return c.json(createErrorResponse('Invalid camera ID', 400), 400)
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const response = await camerasService.getById(id)
+      const cameraId = c.req.param('id')
+
+      const response = await camerasService.getById(cameraId)
 
       if (!response.data) {
         return c.json(
@@ -39,8 +41,13 @@ export class CamerasController {
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Cameras Controller] GetById error: ${error}`)
-      return c.json(createErrorResponse('An error occurred'), 500)
+      logging.error(
+        `[Cameras Controller] An error occurred during the request: ${error}`
+      )
+      return c.json(
+        createErrorResponse('An error occurred during the request'),
+        500
+      )
     }
   }
 
@@ -103,8 +110,11 @@ export class CamerasController {
         return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const body = await c.req.json()
-      const validationResult = CreateCameraSchema.safeParse(body)
+      const requestBody = await c.req.json()
+      requestBody.created_by = userId
+      const validationResult = await CreateCameraSchema.safeParseAsync(
+        requestBody
+      )
 
       if (!validationResult.success) {
         logging.info(

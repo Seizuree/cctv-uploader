@@ -1,37 +1,35 @@
-import { eq, count, ilike, or, and, type SQL } from 'drizzle-orm'
+import { eq, count, ilike, or, and, SQL } from 'drizzle-orm'
 import { db } from '../../connection/db'
-import { roles, type Role, type NewRole } from '../../connection/db/schemas'
+import { roles } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
+import type { CreateRoleRequest, UpdateRoleRequest, DeleteRoleRequest } from './roles.types'
 
 export interface RoleQueryModel {
   select?: {}
-  id?: number
+  id?: string
   name?: string
   pagination?: PaginationQuery
   search?: string
 }
 
 export class RoleRepository {
-  async create(data: NewRole) {
+  async create(data: CreateRoleRequest) {
     const [result] = await db.insert(roles).values(data).returning()
     return result
   }
 
-  async update(id: number, data: Partial<NewRole>) {
+  async update(id: string, data: Partial<UpdateRoleRequest>) {
     const [result] = await db
       .update(roles)
-      .set({ ...data, updated_at: new Date() })
+      .set(data)
       .where(eq(roles.id, id))
       .returning()
     return result
   }
 
-  async delete(id: number) {
-    const [result] = await db
-      .delete(roles)
-      .where(eq(roles.id, id))
-      .returning()
+  async delete(data: DeleteRoleRequest) {
+    const [result] = await db.delete(roles).where(eq(roles.id, data.id)).returning()
     return result
   }
 

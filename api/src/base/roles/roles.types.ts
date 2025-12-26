@@ -1,22 +1,23 @@
 import { z } from 'zod'
 
-export const CreateRoleSchema = z.object({
+export const BaseRoleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
+  description: z.string().min(1, 'Description is required'),
 })
 
-export const UpdateRoleSchema = z.object({
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
+export const CreateRoleSchema = BaseRoleSchema.extend({
+  created_by: z.uuid().optional(),
+})
+
+export const UpdateRoleSchema = BaseRoleSchema.partial().extend({
+  updated_at: z.date(),
+  updated_by: z.uuid(),
+})
+
+export const DeleteRoleSchema = z.object({
+  id: z.uuid('Role ID must be a valid UUID'),
 })
 
 export type CreateRoleRequest = z.infer<typeof CreateRoleSchema>
 export type UpdateRoleRequest = z.infer<typeof UpdateRoleSchema>
-
-export interface RoleResponse {
-  id: number
-  name: string
-  description: string | null
-  created_at: Date
-  updated_at: Date
-}
+export type DeleteRoleRequest = z.infer<typeof DeleteRoleSchema>

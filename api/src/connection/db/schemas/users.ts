@@ -1,11 +1,17 @@
-import { pgTable, varchar, timestamp, uuid } from 'drizzle-orm/pg-core'
+import {
+  pgTable,
+  varchar,
+  timestamp,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 import { roles } from './roles'
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 100 }),
-  email: varchar('email', { length: 100 }),
+  name: varchar('name', { length: 100 }).unique(),
+  email: varchar('email', { length: 100 }).unique(),
   password: varchar('password', { length: 255 }).notNull(),
   role_id: uuid('role_id')
     .notNull()
@@ -16,6 +22,8 @@ export const users = pgTable('users', {
   updated_at: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
+  created_by: uuid('created_by').references((): AnyPgColumn => users.id),
+  updated_by: uuid('updated_by').references((): AnyPgColumn => users.id),
 })
 
 export const usersRelations = relations(users, ({ one }) => ({

@@ -3,13 +3,17 @@ import { db } from '../../connection/db'
 import { workstations, cameras } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
-import type { CreateWorkstationRequest, UpdateWorkstationRequest } from './workstations.types'
+import type {
+  CreateWorkstationRequest,
+  UpdateWorkstationRequest,
+  DeleteWorkstationRequest,
+} from './workstations.types'
 
 export interface WorkstationQueryModel {
   select?: {}
-  id?: number
+  id?: string
   name?: string
-  camera_id?: number
+  camera_id?: string
   pagination?: PaginationQuery
   search?: string
 }
@@ -20,19 +24,19 @@ export class WorkstationRepository {
     return result
   }
 
-  async update(id: number, data: Partial<UpdateWorkstationRequest>) {
+  async update(id: string, data: Partial<UpdateWorkstationRequest>) {
     const [result] = await db
       .update(workstations)
-      .set({ ...data, updated_at: new Date() })
+      .set(data)
       .where(eq(workstations.id, id))
       .returning()
     return result
   }
 
-  async delete(id: number) {
+  async delete(data: DeleteWorkstationRequest) {
     const [result] = await db
       .delete(workstations)
-      .where(eq(workstations.id, id))
+      .where(eq(workstations.id, data.id))
       .returning()
     return result
   }

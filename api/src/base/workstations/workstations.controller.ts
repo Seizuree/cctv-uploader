@@ -6,18 +6,24 @@ import {
 import workstationsService from './workstations.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
-import { CreateWorkstationSchema, UpdateWorkstationSchema } from './workstations.types'
+import {
+  CreateWorkstationSchema,
+  UpdateWorkstationSchema,
+  DeleteWorkstationSchema,
+} from './workstations.types'
 
 export class WorkstationsController {
   async getById(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload').id
 
-      if (isNaN(id)) {
-        return c.json(createErrorResponse('Invalid workstation ID', 400), 400)
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const response = await workstationsService.getById(id)
+      const workstationId = c.req.param('id')
+
+      const response = await workstationsService.getById(workstationId)
 
       if (!response.data) {
         return c.json(
@@ -42,6 +48,12 @@ export class WorkstationsController {
 
   async getWithPagination(c: Context) {
     try {
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const query = c.req.query()
       const validationResult = PaginationSchema.safeParse({
         page: query.page,
@@ -68,15 +80,26 @@ export class WorkstationsController {
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Workstations Controller] GetWithPagination error: ${error}`)
+      logging.error(
+        `[Workstations Controller] GetWithPagination error: ${error}`
+      )
       return c.json(createErrorResponse('An error occurred'), 500)
     }
   }
 
   async create(c: Context) {
     try {
-      const body = await c.req.json()
-      const validationResult = CreateWorkstationSchema.safeParse(body)
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
+      const requestData = await c.req.json()
+      requestData.created_by = userId
+      const validationResult = await CreateWorkstationSchema.safeParseAsync(
+        requestData
+      )
 
       if (!validationResult.success) {
         logging.info(
@@ -108,14 +131,24 @@ export class WorkstationsController {
 
   async update(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload').id
 
-      if (isNaN(id)) {
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
+      const id = c.req.param('id')
+
+      if (!id) {
         return c.json(createErrorResponse('Invalid workstation ID', 400), 400)
       }
 
-      const body = await c.req.json()
-      const validationResult = UpdateWorkstationSchema.safeParse(body)
+      const requestData = await c.req.json()
+      requestData.updated_at = new Date()
+      requestData.updated_by = userId
+      const validationResult = await UpdateWorkstationSchema.safeParseAsync(
+        requestData
+      )
 
       if (!validationResult.success) {
         logging.info(
@@ -126,7 +159,10 @@ export class WorkstationsController {
         return c.json(createErrorResponse('Invalid input data', 400), 400)
       }
 
-      const response = await workstationsService.update(id, validationResult.data)
+      const response = await workstationsService.update(
+        id,
+        validationResult.data
+      )
 
       if (response.statusCode !== 200) {
         return c.json(
@@ -147,13 +183,26 @@ export class WorkstationsController {
 
   async delete(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload').id
 
-      if (isNaN(id)) {
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
+      const requestData = { id: c.req.param('id') }
+
+      const result = await DeleteWorkstationSchema.safeParseAsync(requestData)
+
+      if (!result.success) {
+        logging.info(
+          `[Workstations Controller] Validation error: ${JSON.stringify(
+            result.error?.message
+          )}`
+        )
         return c.json(createErrorResponse('Invalid workstation ID', 400), 400)
       }
 
-      const response = await workstationsService.delete(id)
+      const response = await workstationsService.delete(result.data)
 
       if (response.statusCode !== 200) {
         return c.json(

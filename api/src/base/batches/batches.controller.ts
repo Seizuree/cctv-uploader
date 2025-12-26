@@ -10,13 +10,15 @@ import { PaginationSchema } from '../../types/request.types'
 export class BatchesController {
   async getById(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload').id
 
-      if (isNaN(id)) {
-        return c.json(createErrorResponse('Invalid batch job ID', 400), 400)
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const response = await batchesService.getById(id)
+      const batchId = c.req.param('id')
+
+      const response = await batchesService.getById(batchId)
 
       if (!response.data) {
         return c.json(
@@ -34,13 +36,24 @@ export class BatchesController {
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Batches Controller] GetById error: ${error}`)
-      return c.json(createErrorResponse('An error occurred'), 500)
+      logging.error(
+        `[Batches Controller] An error occurred during the request: ${error}`
+      )
+      return c.json(
+        createErrorResponse('An error occurred during the request'),
+        500
+      )
     }
   }
 
   async getWithPagination(c: Context) {
     try {
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const query = c.req.query()
       const validationResult = PaginationSchema.safeParse({
         page: query.page,
@@ -54,7 +67,9 @@ export class BatchesController {
         return c.json(createErrorResponse('Invalid query parameters', 400), 400)
       }
 
-      const response = await batchesService.getWithPagination(validationResult.data)
+      const response = await batchesService.getWithPagination(
+        validationResult.data
+      )
 
       return c.json(
         createSuccessResponse(
@@ -65,8 +80,13 @@ export class BatchesController {
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Batches Controller] GetWithPagination error: ${error}`)
-      return c.json(createErrorResponse('An error occurred'), 500)
+      logging.error(
+        `[Batches Controller] An error occurred during the request: ${error}`
+      )
+      return c.json(
+        createErrorResponse('An error occurred during the request'),
+        500
+      )
     }
   }
 

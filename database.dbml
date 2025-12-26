@@ -46,19 +46,21 @@ Table roles {
 
   created_at  datetime  [not null]
   updated_at  datetime  [not null]
+  created_by  uuid      [ref: > users.id]
+  updated_by  uuid      [ref: > users.id]
 }
 
 Table users {
   id            uuid      [pk, default: `gen_random_uuid()`]
-  username      varchar   [not null, unique]
+  name          varchar   [not null, unique]
+  email         varchar   [not null, unique]
   password      varchar   [not null]
-  full_name     varchar
-  email         varchar
   role_id       uuid      [not null, ref: > roles.id]
-  is_active     boolean   [not null, default: true]
 
   created_at    datetime  [not null]
   updated_at    datetime  [not null]
+  created_by    uuid      [ref: > users.id]
+  updated_by    uuid      [ref: > users.id]
 }
 
 Table sessions {
@@ -68,7 +70,6 @@ Table sessions {
 
   created_at    datetime  [not null]
   expires_at    datetime  [not null]
-  revoked_at    datetime
 }
 
 /******************************************************************
@@ -81,22 +82,23 @@ Table cameras {
 
   // Hikvision credentials
   base_url            varchar   [not null]  // e.g. http://192.168.1.10:80
-  username            varchar   [not null]
-  password            varchar   [not null]  // AES-256 encrypted
-
-  is_active           boolean   [not null, default: true]
+  cam_username        varchar   [not null]
+  cam_password        varchar   [not null]  // AES-256 encrypted
 
   created_at          datetime  [not null]
   updated_at          datetime  [not null]
+  created_by          uuid      [ref: > users.id]
+  updated_by          uuid      [ref: > users.id]
 }
 
 Table workstations {
   id           uuid      [pk, default: `gen_random_uuid()`]
   name         varchar
   camera_id    uuid      [not null, unique, ref: > cameras.id]
-  is_active    boolean   [not null, default: true]
   created_at   datetime  [not null]
   updated_at   datetime  [not null]
+  created_by   uuid      [ref: > users.id]
+  updated_by   uuid      [ref: > users.id]
 }
 
 /******************************************************************

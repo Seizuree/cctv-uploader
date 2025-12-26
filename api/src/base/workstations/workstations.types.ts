@@ -1,26 +1,23 @@
 import { z } from 'zod'
 
-export const CreateWorkstationSchema = z.object({
+export const BaseWorkstationSchema = z.object({
   name: z.string().optional(),
-  camera_id: z.number().int().positive('Camera ID is required'),
-  is_active: z.boolean().optional().default(true),
+  camera_id: z.uuid('Camera ID is required'),
 })
 
-export const UpdateWorkstationSchema = z.object({
-  name: z.string().optional(),
-  camera_id: z.number().int().positive().optional(),
-  is_active: z.boolean().optional(),
+export const CreateWorkstationSchema = BaseWorkstationSchema.extend({
+  created_by: z.uuid().optional(),
+})
+
+export const UpdateWorkstationSchema = BaseWorkstationSchema.partial().extend({
+  updated_at: z.date(),
+  updated_by: z.uuid(),
+})
+
+export const DeleteWorkstationSchema = z.object({
+  id: z.uuid('Workstation ID must be a valid UUID'),
 })
 
 export type CreateWorkstationRequest = z.infer<typeof CreateWorkstationSchema>
 export type UpdateWorkstationRequest = z.infer<typeof UpdateWorkstationSchema>
-
-export interface WorkstationResponse {
-  id: number
-  name: string | null
-  camera_id: number
-  camera_name: string | null
-  is_active: boolean
-  created_at: Date
-  updated_at: Date
-}
+export type DeleteWorkstationRequest = z.infer<typeof DeleteWorkstationSchema>

@@ -3,7 +3,7 @@ import { db } from '../../connection/db'
 import { users, roles } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
-import type { CreateUserRequest, UpdateUserRequest } from './users.types'
+import type { CreateUserRequest, DeleteUserRequest, UpdateUserRequest } from './users.types'
 
 export interface UserQueryModel {
   select?: {}
@@ -30,8 +30,8 @@ export class UserRepository {
     return result
   }
 
-  async delete(id: string) {
-    const [result] = await db.delete(users).where(eq(users.id, id)).returning()
+  async delete(data: DeleteUserRequest) {
+    const [result] = await db.delete(users).where(eq(users.id, data.id)).returning()
     return result
   }
 

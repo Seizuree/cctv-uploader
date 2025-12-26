@@ -3,7 +3,7 @@ import { db } from '../../connection/db'
 import { cameras } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
-import type { CreateCameraRequest, UpdateCameraRequest } from './cameras.types'
+import type { CreateCameraRequest, UpdateCameraRequest, DeleteCameraRequest } from './cameras.types'
 
 export interface CameraQueryModel {
   select?: {}
@@ -29,10 +29,10 @@ export class CameraRepository {
     return result
   }
 
-  async delete(id: string) {
+  async delete(data: DeleteCameraRequest) {
     const [result] = await db
       .delete(cameras)
-      .where(eq(cameras.id, id))
+      .where(eq(cameras.id, data.id))
       .returning()
     return result
   }

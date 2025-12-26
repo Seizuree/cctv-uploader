@@ -26,5 +26,10 @@ export const UpdateUserSchema = BaseUserSchema.partial().extend({
   updated_by: z.uuid().optional(),
 })
 
+export const DeleteUserSchema = z.object({
+  id: z.uuid('User ID must be a valid UUID'),
+})
+
 export type CreateUserRequest = z.infer<typeof CreateUserSchema>
 export type UpdateUserRequest = z.infer<typeof UpdateUserSchema>
+export type DeleteUserRequest = z.infer<typeof DeleteUserSchema>

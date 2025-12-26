@@ -41,6 +41,12 @@ export const USER_MESSAGES = {
 export const ROLE_MESSAGES = {
   GET_SUCCESS: 'Roles retrieved successfully',
   NOT_FOUND: 'Role not found',
+  ALREADY_EXISTS: 'Role with this name already exists',
+  COULD_NOT_CREATE: 'Could not create role',
+  COULD_NOT_UPDATE: 'Could not update role',
+  CREATED_SUCCESS: 'Role created successfully',
+  UPDATED_SUCCESS: 'Role updated successfully',
+  DELETED_SUCCESS: 'Role deleted successfully',
 } as const
 
 export const CAMERA_MESSAGES = {
@@ -60,6 +66,7 @@ export const WORKSTATION_MESSAGES = {
   CREATED_SUCCESS: 'Workstation created successfully',
   UPDATED_SUCCESS: 'Workstation updated successfully',
   DELETED_SUCCESS: 'Workstation deleted successfully',
+  ALREADY_EXISTS: 'Workstation with this camera already exists',
   COULD_NOT_CREATE: 'Could not create workstation',
   COULD_NOT_UPDATE: 'Could not update workstation',
 } as const

@@ -23,25 +23,33 @@ export class CameraService {
   }
 
   private async checkDuplicate(
-    name: string,
-    base_url: string,
+    name?: string,
+    base_url?: string,
     excludeId?: string
-  ): Promise<boolean> {
-    const existingCamera = (await this.cameraRepository.get({
-      name,
-      base_url,
-      select: { id: cameras.id },
-    })) as { id: string } | undefined
+  ): Promise<{ isDuplicate: boolean; field?: 'name' | 'base_url' }> {
+    if (name) {
+      const existingByName = (await this.cameraRepository.get({
+        name,
+        select: { id: cameras.id },
+      })) as { id: string } | undefined
 
-    if (!existingCamera) {
-      return false
+      if (existingByName && (!excludeId || existingByName.id !== excludeId)) {
+        return { isDuplicate: true, field: 'name' }
+      }
     }
 
-    if (excludeId && existingCamera.id === excludeId) {
-      return false
+    if (base_url) {
+      const existingByUrl = (await this.cameraRepository.get({
+        base_url,
+        select: { id: cameras.id },
+      })) as { id: string } | undefined
+
+      if (existingByUrl && (!excludeId || existingByUrl.id !== excludeId)) {
+        return { isDuplicate: true, field: 'base_url' }
+      }
     }
 
-    return true
+    return { isDuplicate: false }
   }
 
   async getById(id: string): Promise<ApiResponse> {
@@ -114,11 +122,13 @@ export class CameraService {
   }
 
   async create(data: CreateCameraRequest): Promise<ApiResponse> {
-    const isDuplicate = await this.checkDuplicate(data.name, data.base_url)
+    const duplicateCheck = await this.checkDuplicate(data.name, data.base_url)
 
-    if (isDuplicate) {
+    if (duplicateCheck.isDuplicate) {
       logging.error(
-        `[Camera Service] Camera with name '${data.name}' and base_url '${data.base_url}' already exists`
+        `[Camera Service] Camera with ${duplicateCheck.field} '${
+          duplicateCheck.field === 'name' ? data.name : data.base_url
+        }' already exists`
       )
       return {
         statusCode: 400,
@@ -179,14 +189,17 @@ export class CameraService {
     }
 
     if (data.name || data.base_url) {
-      const newName = data.name || existingCamera.name
-      const newBaseUrl = data.base_url || existingCamera.base_url
+      const duplicateCheck = await this.checkDuplicate(
+        data.name,
+        data.base_url,
+        id
+      )
 
-      const isDuplicate = await this.checkDuplicate(newName, newBaseUrl, id)
-
-      if (isDuplicate) {
+      if (duplicateCheck.isDuplicate) {
         logging.error(
-          `[Camera Service] Camera with name '${newName}' and base_url '${newBaseUrl}' already exists`
+          `[Camera Service] Camera with ${duplicateCheck.field} '${
+            duplicateCheck.field === 'name' ? data.name : data.base_url
+          }' already exists`
         )
         return {
           statusCode: 400,
@@ -226,7 +239,7 @@ export class CameraService {
       }
     }
 
-    await this.cameraRepository.delete(request.id)
+    await this.cameraRepository.delete(request)
 
     logging.info(`[Camera Service] Camera deleted successfully: ${request.id}`)
 
