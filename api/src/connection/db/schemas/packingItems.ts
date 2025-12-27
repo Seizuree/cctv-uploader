@@ -4,8 +4,7 @@ import { users } from './users'
 import { workstations } from './workstations'
 
 export const packingStatusEnum = pgEnum('enum_packing_status', [
-  'PENDING_START',
-  'PENDING_END',
+  'PENDING',
   'READY_FOR_BATCH',
   'CLIP_GENERATED',
   'ERROR',
@@ -22,7 +21,7 @@ export const packingItems = pgTable('packing_items', {
     .references(() => workstations.id),
   start_time: timestamp('start_time', { withTimezone: true }),
   end_time: timestamp('end_time', { withTimezone: true }),
-  status: packingStatusEnum('status').notNull().default('PENDING_START'),
+  status: packingStatusEnum('status').notNull().default('PENDING'),
   created_at: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

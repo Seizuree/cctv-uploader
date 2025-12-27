@@ -132,9 +132,11 @@ export class UsersController {
         return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const body = await c.req.json()
-      body.created_by = userId
-      const validationResult = CreateUserSchema.safeParse(body)
+      const requestData = await c.req.json()
+      requestData.created_by = userId
+      const validationResult = await CreateUserSchema.safeParseAsync(
+        requestData
+      )
 
       if (!validationResult.success) {
         logging.info(
@@ -178,16 +180,18 @@ export class UsersController {
         return c.json(createErrorResponse('Invalid user ID', 400), 400)
       }
 
-      const body = await c.req.json()
-      body.updated_at = new Date()
-      body.updated_by = userId
+      const requestData = await c.req.json()
+      requestData.updated_at = new Date()
+      requestData.updated_by = userId
 
       // Remove empty password
-      if (body.password === '') {
-        delete body.password
+      if (requestData.password === '') {
+        delete requestData.password
       }
 
-      const validationResult = await UpdateUserSchema.safeParseAsync(body)
+      const validationResult = await UpdateUserSchema.safeParseAsync(
+        requestData
+      )
 
       if (!validationResult.success) {
         logging.info(
@@ -234,8 +238,8 @@ export class UsersController {
       if (!validationResult.success) {
         logging.info(`
           [Users Controller] Request data: ${JSON.stringify(
-          validationResult.error?.message
-        )}
+            validationResult.error?.message
+          )}
         `)
 
         return c.json(createErrorResponse('Invalid input', 400), 400)

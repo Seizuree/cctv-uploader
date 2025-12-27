@@ -7,8 +7,7 @@ Project packing_cctv_monitoring {
  ******************************************************************/
 
 Enum enum_packing_status {
-  PENDING_START
-  PENDING_END
+  PENDING
   READY_FOR_BATCH
   CLIP_GENERATED
   ERROR

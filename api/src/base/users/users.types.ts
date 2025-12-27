@@ -13,7 +13,7 @@ export const BaseUserSchema = z.object({
       message: 'Email must be 50 characters or fewer',
     }),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  role_id: z.string().uuid('Role ID must be a valid UUID'),
+  role_id: z.uuid('Role ID must be a valid UUID'),
 })
 
 export const CreateUserSchema = BaseUserSchema.extend({

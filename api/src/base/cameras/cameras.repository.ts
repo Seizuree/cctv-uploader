@@ -3,7 +3,11 @@ import { db } from '../../connection/db'
 import { cameras } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
-import type { CreateCameraRequest, UpdateCameraRequest, DeleteCameraRequest } from './cameras.types'
+import type {
+  CreateCameraRequest,
+  UpdateCameraRequest,
+  DeleteCameraRequest,
+} from './cameras.types'
 
 export interface CameraQueryModel {
   select?: {}

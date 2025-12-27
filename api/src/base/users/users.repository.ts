@@ -3,7 +3,11 @@ import { db } from '../../connection/db'
 import { users, roles } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
-import type { CreateUserRequest, DeleteUserRequest, UpdateUserRequest } from './users.types'
+import type {
+  CreateUserRequest,
+  DeleteUserRequest,
+  UpdateUserRequest,
+} from './users.types'
 
 export interface UserQueryModel {
   select?: {}
@@ -24,14 +28,17 @@ export class UserRepository {
   async update(id: string, data: Partial<UpdateUserRequest>) {
     const [result] = await db
       .update(users)
-      .set({ ...data, updated_at: new Date() })
+      .set(data)
       .where(eq(users.id, id))
       .returning()
     return result
   }
 
   async delete(data: DeleteUserRequest) {
-    const [result] = await db.delete(users).where(eq(users.id, data.id)).returning()
+    const [result] = await db
+      .delete(users)
+      .where(eq(users.id, data.id))
+      .returning()
     return result
   }
 
@@ -78,8 +85,8 @@ export class UserRepository {
     }
   }
 
-  private buildWhereConditions(query: UserQueryModel) {
-    const conditions = []
+  private buildWhereConditions(query: UserQueryModel): SQL | undefined {
+    const conditions: SQL[] = []
 
     if (query.id) {
       conditions.push(eq(users.id, query.id))
@@ -102,7 +109,7 @@ export class UserRepository {
         or(
           ilike(users.name, `%${query.search}%`),
           ilike(users.email, `%${query.search}%`)
-        )
+        )!
       )
     }
 
