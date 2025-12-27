@@ -10,7 +10,7 @@ async function runMigrations() {
     logging.info('Migrations completed successfully')
     process.exit(0)
   } catch (error) {
-    logging.error({ err: error }, 'Migration failed')
+    logging.error(`Migration failed: ${error}`)
     process.exit(1)
   }
 }

@@ -81,8 +81,8 @@ export class AuthController {
 
       // Return success even if user not found (for security reasons)
       return c.json(createSuccessResponse(null, 'Logout successful'), 200)
-    } catch (error: any) {
-      logging.error('[Auth Controller] Logout error:', error)
+    } catch (error) {
+      logging.error(`[Auth Controller] Logout error: ${error}`)
       return c.json(createErrorResponse('An error occurred during logout'), 500)
     }
   }
@@ -191,8 +191,8 @@ export class AuthController {
           authResponse.statusCode
         )
       )
-    } catch (error: any) {
-      logging.error('[Auth Controller] Token refresh error:', error)
+    } catch (error) {
+      logging.error(`[Auth Controller] Token refresh error: ${error}`)
       return c.json(
         createErrorResponse('An error occurred during token refresh'),
         500

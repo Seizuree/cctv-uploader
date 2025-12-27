@@ -47,12 +47,10 @@ async function seed() {
         const hashedPassword = await hashPassword('admin123')
 
         await db.insert(users).values({
-          username: 'admin',
+          name: 'System Administrator',
           password: hashedPassword,
-          full_name: 'System Administrator',
           email: 'admin@example.com',
           role_id: superadminRole.id,
-          is_active: true,
         })
         logging.info('Admin user seeded successfully')
         logging.info('Default credentials: admin / admin123')
@@ -64,7 +62,7 @@ async function seed() {
     logging.info('Database seeding completed')
     process.exit(0)
   } catch (error) {
-    logging.error({ err: error }, 'Seeding failed')
+    logging.error(`Seeding failed: ${error}`)
     process.exit(1)
   }
 }
