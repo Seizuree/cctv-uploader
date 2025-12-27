@@ -6,13 +6,13 @@ from db.session import SessionLocal
 logger = logging.getLogger(__name__)
 
 # Global job queue for manual trigger requests
-job_queue: Queue[int] = Queue()
+job_queue: Queue[str] = Queue()
 
 # Flag to signal queue worker to stop
 queue_worker_shutdown = False
 
 
-def enqueue_job(packing_item_id: int) -> None:
+def enqueue_job(packing_item_id: str) -> None:
     """Add a packing item ID to the processing queue."""
     job_queue.put(packing_item_id)
     logger.info(f"Enqueued packing_item_id={packing_item_id} for processing")

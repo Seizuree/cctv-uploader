@@ -191,7 +191,7 @@ export class PackingController {
     }
   }
 
-  async reprocess(c: Context) {
+  async processItem(c: Context) {
     try {
       const userId = c.get('jwtPayload')?.id
       if (!userId) {
@@ -204,9 +204,9 @@ export class PackingController {
         return c.json(createErrorResponse('Invalid packing item ID', 400), 400)
       }
 
-      const response = await packingService.reprocess(id)
+      const response = await packingService.processItem(id)
 
-      if (response.statusCode !== 200) {
+      if (response.statusCode >= 400) {
         return c.json(
           createErrorResponse(response.message, response.statusCode),
           response.statusCode
@@ -214,11 +214,15 @@ export class PackingController {
       }
 
       return c.json(
-        createSuccessResponse({}, response.message, response.statusCode),
+        createSuccessResponse(
+          response.data,
+          response.message,
+          response.statusCode
+        ),
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Packing Controller] Reprocess error: ${error}`)
+      logging.error(`[Packing Controller] ProcessItem error: ${error}`)
       return c.json(createErrorResponse('An error occurred'), 500)
     }
   }

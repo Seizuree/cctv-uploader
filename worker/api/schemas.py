@@ -2,12 +2,12 @@ from pydantic import BaseModel
 
 
 class TriggerRequest(BaseModel):
-    packing_item_id: int
+    packing_item_id: str
 
 
 class TriggerResponse(BaseModel):
     status: str
-    packing_item_id: int
+    packing_item_id: str
     message: str
 
 

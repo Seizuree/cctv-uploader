@@ -18,4 +18,5 @@ export const config = {
     accessKey: process.env.GCS_ACCESS_KEY || '',
     secretKey: process.env.GCS_SECRET_KEY || '',
   },
+  workerUrl: process.env.WORKER_URL || 'http://localhost:8001',
 }

@@ -9,6 +9,7 @@ import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
 import type { ScanStartRequest, ScanEndRequest } from './packing.types'
 import { packingItems } from '../../connection/db/schemas'
+import { config } from '../../config'
 
 export class PackingService {
   private packingRepository: PackingRepository
@@ -150,8 +151,11 @@ export class PackingService {
     }
   }
 
-  async reprocess(id: string): Promise<ApiResponse> {
-    const packing = await this.packingRepository.get({ id })
+  async processItem(id: string): Promise<ApiResponse> {
+    const packing = (await this.packingRepository.get({ id })) as {
+      id: string
+      status: string
+    } | null
 
     if (!packing) {
       logging.error(`[Packing Service] Packing item with id ${id} not found`)
@@ -161,15 +165,63 @@ export class PackingService {
       }
     }
 
-    await this.packingRepository.update(id, {
-      status: 'PENDING',
-    })
+    // Handle status: READY_FOR_BATCH or ERROR can be processed
+    if (packing.status !== 'READY_FOR_BATCH' && packing.status !== 'ERROR') {
+      logging.error(
+        `[Packing Service] Packing item ${id} is not ready (status: ${packing.status})`
+      )
+      return {
+        statusCode: 400,
+        message: PACKING_MESSAGES.NOT_READY,
+      }
+    }
 
-    logging.info(`[Packing Service] Packing item ${id} queued for reprocessing`)
+    // If status is ERROR, reset to READY_FOR_BATCH first
+    if (packing.status === 'ERROR') {
+      await this.packingRepository.update(id, {
+        status: 'READY_FOR_BATCH',
+      })
+      logging.info(`[Packing Service] Reset packing item ${id} from ERROR to READY_FOR_BATCH`)
+    }
 
-    return {
-      statusCode: 200,
-      message: PACKING_MESSAGES.REPROCESS_SUCCESS,
+    try {
+      const response = await fetch(`${config.workerUrl}/trigger`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ packing_item_id: id }),
+      })
+
+      if (!response.ok) {
+        const errorData = (await response.json()) as { message?: string }
+        logging.error(
+          `[Packing Service] Worker returned error: ${JSON.stringify(errorData)}`
+        )
+        return {
+          statusCode: response.status as 400 | 404 | 500,
+          message: errorData.message || PACKING_MESSAGES.WORKER_UNAVAILABLE,
+        }
+      }
+
+      const data = (await response.json()) as { status: string }
+
+      logging.info(`[Packing Service] Processing queued for packing item ${id}`)
+
+      return {
+        statusCode: 202,
+        message: PACKING_MESSAGES.PROCESS_QUEUED,
+        data: {
+          packing_item_id: id,
+          status: data.status,
+        },
+      }
+    } catch (error) {
+      logging.error(`[Packing Service] Worker request failed: ${error}`)
+      return {
+        statusCode: 502,
+        message: PACKING_MESSAGES.WORKER_UNAVAILABLE,
+      }
     }
   }
 }

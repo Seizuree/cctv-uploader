@@ -78,7 +78,9 @@ export const PACKING_MESSAGES = {
   SCAN_END_SUCCESS: 'Packing ended successfully',
   ALREADY_STARTED: 'Packing already started for this barcode',
   NOT_STARTED: 'No active packing found for this barcode',
-  REPROCESS_SUCCESS: 'Packing item queued for reprocessing',
+  PROCESS_QUEUED: 'Processing queued',
+  NOT_READY: 'Packing item is not ready for processing',
+  WORKER_UNAVAILABLE: 'Worker service unavailable',
 } as const
 
 export const CLIP_MESSAGES = {

@@ -160,7 +160,7 @@ def process_batch(db: Session) -> None:
     logger.info(f"Batch job {batch_job.id} completed: {success_count} success, {failed_count} failed")
 
 
-def process_single_item_by_id(db: Session, packing_item_id: int) -> bool:
+def process_single_item_by_id(db: Session, packing_item_id: str) -> bool:
     """Process a single packing item by ID (for manual trigger). Returns True if successful."""
     # Track temp directories for cleanup
     temp_dirs: list[str] = []
