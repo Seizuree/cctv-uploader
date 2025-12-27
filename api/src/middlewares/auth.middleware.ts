@@ -1,13 +1,11 @@
 import type { Context, Next } from 'hono'
-import { verify } from 'hono/jwt'
-import { config } from '../config'
+import { verifyToken } from '../utils/jwt'
 import { createErrorResponse } from '../types/response.types'
 import { logging } from '../logger'
 import { AUTH_MESSAGES } from '../constants/messages'
 import type { JwtPayload } from '../types/jwt.types'
-import { db } from '../connection/db'
 import { sessions } from '../connection/db/schemas'
-import { eq } from 'drizzle-orm'
+import sessionsRepository from '../base/sessions/sessions.repository'
 
 export const authMiddleware = async (c: Context, next: Next) => {
   try {
@@ -23,13 +21,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
     }
 
     try {
-      const decoded = await verify(token, config.jwtSecret)
-      const payload: JwtPayload = {
-        id: decoded.id as number,
-        role_id: decoded.role_id as number,
-        session_id: decoded.session_id as number,
-        type: decoded.type as 'access' | 'refresh',
-      }
+      const payload = verifyToken(token)
 
       if (payload.type !== 'access') {
         logging.error(
@@ -41,25 +33,17 @@ export const authMiddleware = async (c: Context, next: Next) => {
         )
       }
 
-      // Validate session is still active (not revoked)
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.id, payload.session_id))
-        .limit(1)
+      const session = (await sessionsRepository.get({
+        id: payload.session_id,
+        select: {
+          expires_at: sessions.expires_at,
+        },
+      })) as { expires_at: Date }
 
       if (!session) {
         logging.error('[Auth Middleware] Session not found')
         return c.json(
           createErrorResponse(AUTH_MESSAGES.SESSION_EXPIRED, 401),
-          401
-        )
-      }
-
-      if (session.revoked_at !== null) {
-        logging.error('[Auth Middleware] Session has been revoked')
-        return c.json(
-          createErrorResponse(AUTH_MESSAGES.SESSION_REVOKED, 401),
           401
         )
       }
@@ -75,7 +59,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
       c.set('jwtPayload', payload)
       await next()
     } catch (error) {
-      logging.error({ err: error }, '[Auth Middleware] Token verification failed')
+      logging.error(`[Auth Middleware] Token verification failed: ${error}`)
       return c.json(
         createErrorResponse(AUTH_MESSAGES.UNAUTHORIZED_INVALID_TOKEN, 401),
         401

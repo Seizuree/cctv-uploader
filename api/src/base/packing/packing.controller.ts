@@ -6,15 +6,22 @@ import {
 import packingService from './packing.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
-import { ScanRequestSchema } from './packing.types'
-import type { JwtPayload } from '../../types/jwt.types'
+import { ScanStartRequestSchema, ScanEndRequestSchema } from './packing.types'
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export class PackingController {
   async getById(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload')?.id
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
 
-      if (isNaN(id)) {
+      const id = c.req.param('id')
+
+      if (!id || !UUID_REGEX.test(id)) {
         return c.json(createErrorResponse('Invalid packing item ID', 400), 400)
       }
 
@@ -43,6 +50,12 @@ export class PackingController {
 
   async getWithPagination(c: Context) {
     try {
+      const userId = c.get('jwtPayload')?.id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const query = c.req.query()
       const validationResult = PaginationSchema.safeParse({
         page: query.page,
@@ -56,7 +69,9 @@ export class PackingController {
         return c.json(createErrorResponse('Invalid query parameters', 400), 400)
       }
 
-      const response = await packingService.getWithPagination(validationResult.data)
+      const response = await packingService.getWithPagination(
+        validationResult.data
+      )
 
       return c.json(
         createSuccessResponse(
@@ -72,16 +87,18 @@ export class PackingController {
     }
   }
 
-  async scan(c: Context) {
+  async scanStart(c: Context) {
     try {
-      const jwtPayload = c.get('jwtPayload') as JwtPayload
+      const userId = c.get('jwtPayload').id
 
-      if (!jwtPayload) {
+      if (!userId) {
         return c.json(createErrorResponse('Unauthorized', 401), 401)
       }
 
-      const body = await c.req.json()
-      const validationResult = ScanRequestSchema.safeParse(body)
+      const requestData = await c.req.json()
+      const validationResult = await ScanStartRequestSchema.safeParseAsync(
+        requestData
+      )
 
       if (!validationResult.success) {
         logging.info(
@@ -92,12 +109,16 @@ export class PackingController {
         return c.json(createErrorResponse('Invalid input data', 400), 400)
       }
 
-      const response = await packingService.scan(
+      const response = await packingService.scanStart(
         validationResult.data,
-        jwtPayload.id
+        userId
       )
 
-      if (!response.data && response.statusCode !== 201 && response.statusCode !== 200) {
+      if (
+        !response.data &&
+        response.statusCode !== 201 &&
+        response.statusCode !== 200
+      ) {
         return c.json(
           createErrorResponse(response.message, response.statusCode),
           response.statusCode
@@ -113,16 +134,73 @@ export class PackingController {
         response.statusCode
       )
     } catch (error) {
-      logging.error(`[Packing Controller] Scan error: ${error}`)
+      logging.error(`[Packing Controller] ScanStart error: ${error}`)
+      return c.json(createErrorResponse('An error occurred'), 500)
+    }
+  }
+
+  async scanEnd(c: Context) {
+    try {
+      const userId = c.get('jwtPayload').id
+
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
+      const requestData = await c.req.json()
+      const validationResult = await ScanEndRequestSchema.safeParseAsync(
+        requestData
+      )
+
+      if (!validationResult.success) {
+        logging.info(
+          `[Packing Controller] Validation error: ${JSON.stringify(
+            validationResult.error.message
+          )}`
+        )
+        return c.json(createErrorResponse('Invalid input data', 400), 400)
+      }
+
+      const response = await packingService.scanEnd(
+        validationResult.data,
+        userId
+      )
+
+      if (
+        !response.data &&
+        response.statusCode !== 201 &&
+        response.statusCode !== 200
+      ) {
+        return c.json(
+          createErrorResponse(response.message, response.statusCode),
+          response.statusCode
+        )
+      }
+
+      return c.json(
+        createSuccessResponse(
+          response.data,
+          response.message,
+          response.statusCode
+        ),
+        response.statusCode
+      )
+    } catch (error) {
+      logging.error(`[Packing Controller] ScanEnd error: ${error}`)
       return c.json(createErrorResponse('An error occurred'), 500)
     }
   }
 
   async reprocess(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload')?.id
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
 
-      if (isNaN(id)) {
+      const id = c.req.param('id')
+
+      if (!id || !UUID_REGEX.test(id)) {
         return c.json(createErrorResponse('Invalid packing item ID', 400), 400)
       }
 

@@ -6,7 +6,8 @@ const packingRouter = new Hono()
 
 packingRouter.get('/', packingController.getWithPagination)
 packingRouter.get('/:id', packingController.getById)
-packingRouter.post('/scan', requireOperator, packingController.scan)
+packingRouter.post('/scan/start', requireOperator, packingController.scanStart)
+packingRouter.post('/scan/end', requireOperator, packingController.scanEnd)
 packingRouter.post('/:id/reprocess', requireSuperadmin, packingController.reprocess)
 
 export default packingRouter

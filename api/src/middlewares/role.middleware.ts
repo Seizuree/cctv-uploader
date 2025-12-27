@@ -3,10 +3,9 @@ import { createErrorResponse } from '../types/response.types'
 import { logging } from '../logger'
 import { COMMON_MESSAGES } from '../constants/messages'
 import type { JwtPayload } from '../types/jwt.types'
-import { db } from '../connection/db'
 import { roles } from '../connection/db/schemas'
-import { eq } from 'drizzle-orm'
 import { ROLE_NAMES } from '../constants/roles'
+import rolesRepository from '../base/roles/roles.repository'
 
 export const requireSuperadmin = async (c: Context, next: Next) => {
   try {
@@ -17,11 +16,12 @@ export const requireSuperadmin = async (c: Context, next: Next) => {
       return c.json(createErrorResponse(COMMON_MESSAGES.UNAUTHORIZED, 401), 401)
     }
 
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.id, jwtPayload.role_id))
-      .limit(1)
+    const role = (await rolesRepository.get({
+      id: jwtPayload.role_id,
+      select: {
+        name: roles.name,
+      },
+    })) as { name: string }
 
     if (!role) {
       logging.error('[Role Middleware] Role not found')
@@ -49,11 +49,12 @@ export const requireOperator = async (c: Context, next: Next) => {
       return c.json(createErrorResponse(COMMON_MESSAGES.UNAUTHORIZED, 401), 401)
     }
 
-    const [role] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.id, jwtPayload.role_id))
-      .limit(1)
+    const role = (await rolesRepository.get({
+      id: jwtPayload.role_id,
+      select: {
+        name: roles.name,
+      },
+    })) as { name: string }
 
     if (!role) {
       logging.error('[Role Middleware] Role not found')

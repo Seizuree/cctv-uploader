@@ -1,10 +1,14 @@
-import { PackingRepository, type PackingItemWithRelations } from './packing.repository'
+import { PackingRepository } from './packing.repository'
 import { logging } from '../../logger'
 import { PACKING_MESSAGES } from '../../constants/messages'
-import type { ApiResponse, PaginationApiResponse } from '../../types/response.types'
+import type {
+  ApiResponse,
+  PaginationApiResponse,
+} from '../../types/response.types'
 import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
-import type { ScanRequest } from './packing.types'
+import type { ScanStartRequest, ScanEndRequest } from './packing.types'
+import { packingItems } from '../../connection/db/schemas'
 
 export class PackingService {
   private packingRepository: PackingRepository
@@ -13,8 +17,21 @@ export class PackingService {
     this.packingRepository = new PackingRepository()
   }
 
-  async getById(id: number): Promise<ApiResponse<PackingItemWithRelations | undefined>> {
-    const packing = await this.packingRepository.get({ id })
+  async getById(id: string): Promise<ApiResponse> {
+    const select = {
+      id: packingItems.id,
+      barcode: packingItems.barcode,
+      operator_id: packingItems.operator_id,
+      workstation_id: packingItems.workstation_id,
+      start_time: packingItems.start_time,
+      end_time: packingItems.end_time,
+      status: packingItems.status,
+    }
+
+    const packing = await this.packingRepository.get({
+      select,
+      id,
+    })
 
     if (!packing) {
       logging.error(`[Packing Service] Packing item with id ${id} not found`)
@@ -35,8 +52,19 @@ export class PackingService {
 
   async getWithPagination(
     request: PaginationRequest
-  ): Promise<PaginationApiResponse<PackingItemWithRelations>> {
+  ): Promise<PaginationApiResponse> {
+    const select = {
+      id: packingItems.id,
+      barcode: packingItems.barcode,
+      operator_id: packingItems.operator_id,
+      workstation_id: packingItems.workstation_id,
+      start_time: packingItems.start_time,
+      end_time: packingItems.end_time,
+      status: packingItems.status,
+    }
+
     const { data, count } = await this.packingRepository.gets({
+      select,
       pagination: request,
       search: request.search,
     })
@@ -52,26 +80,16 @@ export class PackingService {
     )
   }
 
-  async scan(
-    data: ScanRequest,
-    operatorId: number
-  ): Promise<ApiResponse<PackingItemWithRelations | undefined>> {
-    if (data.action === 'START') {
-      return this.handleScanStart(data, operatorId)
-    } else {
-      return this.handleScanEnd(data, operatorId)
-    }
-  }
-
-  private async handleScanStart(
-    data: ScanRequest,
-    operatorId: number
-  ): Promise<ApiResponse<PackingItemWithRelations | undefined>> {
+  async scanStart(
+    data: ScanStartRequest,
+    userId: string
+  ): Promise<ApiResponse> {
     // Check if there's already an active packing for this barcode
-    const existingPacking = await this.packingRepository.getActivePacking(
-      data.barcode,
-      data.workstation_id
-    )
+    const existingPacking = (await this.packingRepository.get({
+      operator_id: userId,
+      barcode: data.barcode,
+      status: 'PENDING',
+    })) as { id: string }
 
     if (existingPacking) {
       logging.error(
@@ -83,15 +101,13 @@ export class PackingService {
       }
     }
 
-    const created = await this.packingRepository.create({
+    await this.packingRepository.create({
       barcode: data.barcode,
-      operator_id: operatorId,
+      operator_id: userId,
       workstation_id: data.workstation_id,
       start_time: new Date(),
-      status: 'PENDING_END',
+      status: 'PENDING',
     })
-
-    const packing = await this.packingRepository.get({ id: created.id })
 
     logging.info(
       `[Packing Service] Packing started for barcode: ${data.barcode}`
@@ -100,19 +116,16 @@ export class PackingService {
     return {
       statusCode: 201,
       message: PACKING_MESSAGES.SCAN_START_SUCCESS,
-      data: packing,
     }
   }
 
-  private async handleScanEnd(
-    data: ScanRequest,
-    operatorId: number
-  ): Promise<ApiResponse<PackingItemWithRelations | undefined>> {
+  async scanEnd(data: ScanEndRequest, userId: string): Promise<ApiResponse> {
     // Find active packing for this barcode
-    const existingPacking = await this.packingRepository.getActivePacking(
-      data.barcode,
-      data.workstation_id
-    )
+    const existingPacking = (await this.packingRepository.get({
+      operator_id: userId,
+      barcode: data.barcode,
+      status: 'PENDING',
+    })) as { id: string }
 
     if (!existingPacking) {
       logging.error(
@@ -129,18 +142,15 @@ export class PackingService {
       status: 'READY_FOR_BATCH',
     })
 
-    const packing = await this.packingRepository.get({ id: existingPacking.id })
-
     logging.info(`[Packing Service] Packing ended for barcode: ${data.barcode}`)
 
     return {
       statusCode: 200,
       message: PACKING_MESSAGES.SCAN_END_SUCCESS,
-      data: packing,
     }
   }
 
-  async reprocess(id: number): Promise<ApiResponse> {
+  async reprocess(id: string): Promise<ApiResponse> {
     const packing = await this.packingRepository.get({ id })
 
     if (!packing) {
@@ -151,7 +161,9 @@ export class PackingService {
       }
     }
 
-    await this.packingRepository.updateStatus(id, 'READY_FOR_BATCH')
+    await this.packingRepository.update(id, {
+      status: 'PENDING',
+    })
 
     logging.info(`[Packing Service] Packing item ${id} queued for reprocessing`)
 

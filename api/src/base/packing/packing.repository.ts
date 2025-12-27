@@ -1,43 +1,34 @@
-import { eq, count, ilike, or, and, type SQL, sql, desc } from 'drizzle-orm'
+import { eq, count, ilike, or, and, type SQL, sql } from 'drizzle-orm'
 import { db } from '../../connection/db'
-import {
-  packingItems,
-  users,
-  workstations,
-  type NewPackingItem,
-  type PackingStatus,
-} from '../../connection/db/schemas'
+import { packingItems, users, workstations } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
+import type { PackingItemsRequest, PackingStatus } from './packing.types'
 
 export interface PackingQueryModel {
   select?: {}
-  id?: number
+  id?: string
   barcode?: string
-  operator_id?: number
-  workstation_id?: number
+  operator_id?: string
+  workstation_id?: string
   status?: PackingStatus
   pagination?: PaginationQuery
   search?: string
 }
 
 export class PackingRepository {
-  async create(data: NewPackingItem) {
+  async create(data: PackingItemsRequest) {
     const [result] = await db.insert(packingItems).values(data).returning()
     return result
   }
 
-  async update(id: number, data: Partial<NewPackingItem>) {
+  async update(id: string, data: Partial<PackingItemsRequest>) {
     const [result] = await db
       .update(packingItems)
-      .set({ ...data, updated_at: new Date() })
+      .set(data)
       .where(eq(packingItems.id, id))
       .returning()
     return result
-  }
-
-  async updateStatus(id: number, status: PackingStatus) {
-    return this.update(id, { status })
   }
 
   async get(query: PackingQueryModel) {
@@ -49,24 +40,6 @@ export class PackingRepository {
       .leftJoin(users, eq(packingItems.operator_id, users.id))
       .leftJoin(workstations, eq(packingItems.workstation_id, workstations.id))
       .where(this.buildWhereConditions(query))
-      .limit(1)
-    return result
-  }
-
-  async getActivePacking(barcode: string, workstationId: number) {
-    const [result] = await db
-      .select()
-      .from(packingItems)
-      .leftJoin(users, eq(packingItems.operator_id, users.id))
-      .leftJoin(workstations, eq(packingItems.workstation_id, workstations.id))
-      .where(
-        and(
-          eq(packingItems.barcode, barcode),
-          eq(packingItems.workstation_id, workstationId),
-          eq(packingItems.status, 'PENDING_END')
-        )
-      )
-      .orderBy(desc(packingItems.created_at))
       .limit(1)
     return result
   }
@@ -139,7 +112,7 @@ export class PackingRepository {
       conditions.push(
         or(
           ilike(packingItems.barcode, `%${query.search}%`),
-          ilike(users.username, `%${query.search}%`),
+          ilike(users.name, `%${query.search}%`),
           ilike(workstations.name, `%${query.search}%`)
         )!
       )
