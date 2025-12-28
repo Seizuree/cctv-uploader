@@ -2,8 +2,7 @@ import enum
 
 
 class PackingStatus(str, enum.Enum):
-    PENDING_START = "PENDING_START"
-    PENDING_END = "PENDING_END"
+    PENDING = "PENDING"
     READY_FOR_BATCH = "READY_FOR_BATCH"
     CLIP_GENERATED = "CLIP_GENERATED"
     ERROR = "ERROR"

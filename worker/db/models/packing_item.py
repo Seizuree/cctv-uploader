@@ -37,7 +37,7 @@ class PackingItem(Base):
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     status: Mapped[PackingStatus] = mapped_column(
-        Enum(PackingStatus), default=PackingStatus.PENDING_START, nullable=False
+        Enum(PackingStatus), default=PackingStatus.PENDING, nullable=False
     )
 
     created_at: Mapped[datetime] = mapped_column(

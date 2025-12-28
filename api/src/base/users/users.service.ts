@@ -7,21 +7,13 @@ import type {
 } from '../../types/response.types'
 import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
-import type { CreateUserRequest, DeleteUserRequest, UpdateUserRequest } from './users.types'
+import type {
+  CreateUserRequest,
+  DeleteUserRequest,
+  UpdateUserRequest,
+} from './users.types'
 import { hashPassword } from '../../utils/hash'
 import { users, roles } from '../../connection/db/schemas'
-
-interface UserWithRole {
-  id: number
-  username: string
-  full_name: string | null
-  email: string | null
-  role_id: number
-  is_active: boolean
-  created_at: Date
-  updated_at: Date
-  role_name: string | null
-}
 
 export class UserService {
   private userRepository: UserRepository
@@ -116,9 +108,8 @@ export class UserService {
 
   async getWithPagination(
     request: PaginationRequest
-  ): Promise<PaginationApiResponse<UserWithRole>> {
+  ): Promise<PaginationApiResponse> {
     const select = {
-      id: users.id,
       name: users.name,
       email: users.email,
       role_id: users.role_id,
@@ -136,7 +127,7 @@ export class UserService {
     logging.info(`[User Service] Get users success`)
 
     return createPaginationResponse(
-      data as UserWithRole[],
+      data,
       count,
       request,
       USER_MESSAGES.GET_SUCCESS,
@@ -149,7 +140,9 @@ export class UserService {
 
     if (duplicateCheck.isDuplicate) {
       logging.error(
-        `[User Service] User with ${duplicateCheck.field} '${duplicateCheck.field === 'name' ? data.name : data.email}' already exists`
+        `[User Service] User with ${duplicateCheck.field} '${
+          duplicateCheck.field === 'name' ? data.name : data.email
+        }' already exists`
       )
       return {
         statusCode: 400,
@@ -218,11 +211,17 @@ export class UserService {
     }
 
     if (data.name || data.email) {
-      const duplicateCheck = await this.checkDuplicate(data.name, data.email, id)
+      const duplicateCheck = await this.checkDuplicate(
+        data.name,
+        data.email,
+        id
+      )
 
       if (duplicateCheck.isDuplicate) {
         logging.error(
-          `[User Service] User with ${duplicateCheck.field} '${duplicateCheck.field === 'name' ? data.name : data.email}' already exists`
+          `[User Service] User with ${duplicateCheck.field} '${
+            duplicateCheck.field === 'name' ? data.name : data.email
+          }' already exists`
         )
         return {
           statusCode: 400,

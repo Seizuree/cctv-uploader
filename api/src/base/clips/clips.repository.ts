@@ -1,29 +1,19 @@
 import { eq, count, ilike, or, and, type SQL, sql } from 'drizzle-orm'
 import { db } from '../../connection/db'
-import {
-  miniClips,
-  cameras,
-  packingItems,
-  type NewMiniClip,
-} from '../../connection/db/schemas'
+import { miniClips, cameras, packingItems } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
 
 export interface ClipQueryModel {
   select?: {}
-  id?: number
-  packing_item_id?: number
-  camera_id?: number
+  id?: string
+  packing_item_id?: string
+  camera_id?: string
   pagination?: PaginationQuery
   search?: string
 }
 
 export class ClipRepository {
-  async create(data: NewMiniClip) {
-    const [result] = await db.insert(miniClips).values(data).returning()
-    return result
-  }
-
   async get(query: ClipQueryModel) {
     const select = query.select || miniClips
 
@@ -38,6 +28,8 @@ export class ClipRepository {
   }
 
   async gets(query: ClipQueryModel) {
+    const select = query.select || miniClips
+
     const [countResult] = await db
       .select({ count: count() })
       .from(miniClips)
@@ -46,7 +38,7 @@ export class ClipRepository {
       .where(this.buildWhereConditions(query))
 
     let baseQuery = db
-      .select(query.select || miniClips)
+      .select(select)
       .from(miniClips)
       .leftJoin(cameras, eq(miniClips.camera_id, cameras.id))
       .leftJoin(packingItems, eq(miniClips.packing_item_id, packingItems.id))

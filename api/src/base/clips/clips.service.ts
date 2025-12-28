@@ -1,14 +1,17 @@
-import { ClipRepository, type ClipWithRelations } from './clips.repository'
+import { ClipRepository } from './clips.repository'
 import { logging } from '../../logger'
 import { CLIP_MESSAGES } from '../../constants/messages'
-import type { ApiResponse, PaginationApiResponse } from '../../types/response.types'
+import type {
+  ApiResponse,
+  PaginationApiResponse,
+} from '../../types/response.types'
 import { createPaginationResponse } from '../../types/response.types'
 import type { PaginationRequest } from '../../types/request.types'
-import type { SignedUrlResponse } from './clips.types'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client } from '../../connection/gcs'
 import { config } from '../../config'
+import { cameras, miniClips, packingItems } from '../../connection/db/schemas'
 
 export class ClipService {
   private clipRepository: ClipRepository
@@ -17,8 +20,17 @@ export class ClipService {
     this.clipRepository = new ClipRepository()
   }
 
-  async getById(id: number): Promise<ApiResponse<ClipWithRelations | undefined>> {
-    const clip = await this.clipRepository.get({ id })
+  async getById(id: string): Promise<ApiResponse> {
+    const clip = await this.clipRepository.get({
+      id,
+      select: {
+        camera_name: cameras.name,
+        barcode: packingItems.barcode,
+        duration_sec: miniClips.duration_sec,
+        generated_at: miniClips.generated_at,
+        status: miniClips.status,
+      },
+    })
 
     if (!clip) {
       logging.error(`[Clip Service] Clip with id ${id} not found`)
@@ -39,7 +51,7 @@ export class ClipService {
 
   async getWithPagination(
     request: PaginationRequest
-  ): Promise<PaginationApiResponse<ClipWithRelations>> {
+  ): Promise<PaginationApiResponse> {
     const { data, count } = await this.clipRepository.gets({
       pagination: request,
       search: request.search,
@@ -56,8 +68,13 @@ export class ClipService {
     )
   }
 
-  async getSignedUrl(id: number): Promise<ApiResponse<SignedUrlResponse | undefined>> {
-    const clip = await this.clipRepository.get({ id })
+  async getSignedUrl(id: string): Promise<ApiResponse> {
+    const clip = (await this.clipRepository.get({
+      id,
+      select: {
+        storage_path: miniClips.storage_path,
+      },
+    })) as { storage_path: string }
 
     if (!clip) {
       logging.error(`[Clip Service] Clip with id ${id} not found`)

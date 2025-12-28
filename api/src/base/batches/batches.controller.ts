@@ -6,6 +6,7 @@ import {
 import batchesService from './batches.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
+import { BatchFilterSchema } from './batches.types'
 
 export class BatchesController {
   async getById(c: Context) {
@@ -55,7 +56,9 @@ export class BatchesController {
       }
 
       const query = c.req.query()
-      const validationResult = PaginationSchema.safeParse({
+
+      // Validate pagination params
+      const paginationResult = PaginationSchema.safeParse({
         page: query.page,
         limit: query.limit,
         sortBy: query.sortBy || 'started_at',
@@ -63,13 +66,25 @@ export class BatchesController {
         search: query.search,
       })
 
-      if (!validationResult.success) {
+      if (!paginationResult.success) {
         return c.json(createErrorResponse('Invalid query parameters', 400), 400)
       }
 
-      const response = await batchesService.getWithPagination(
-        validationResult.data
-      )
+      // Validate filter params
+      const filterResult = BatchFilterSchema.safeParse({
+        status: query.status,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      })
+
+      if (!filterResult.success) {
+        return c.json(createErrorResponse('Invalid filter parameters', 400), 400)
+      }
+
+      const response = await batchesService.getWithPagination({
+        ...paginationResult.data,
+        ...filterResult.data,
+      })
 
       return c.json(
         createSuccessResponse(
@@ -87,31 +102,6 @@ export class BatchesController {
         createErrorResponse('An error occurred during the request'),
         500
       )
-    }
-  }
-
-  async trigger(c: Context) {
-    try {
-      const response = await batchesService.trigger()
-
-      if (response.statusCode >= 400) {
-        return c.json(
-          createErrorResponse(response.message, response.statusCode),
-          response.statusCode
-        )
-      }
-
-      return c.json(
-        createSuccessResponse(
-          response.data,
-          response.message,
-          response.statusCode
-        ),
-        response.statusCode
-      )
-    } catch (error) {
-      logging.error(`[Batches Controller] Trigger error: ${error}`)
-      return c.json(createErrorResponse('An error occurred'), 500)
     }
   }
 }

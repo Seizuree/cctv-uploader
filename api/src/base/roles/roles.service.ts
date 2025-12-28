@@ -42,13 +42,11 @@ export class RoleService {
 
   async getById(id: string): Promise<ApiResponse> {
     const select = {
-      id: roles.id,
       name: roles.name,
       description: roles.description,
     }
 
     const role = (await this.roleRepository.get({ id, select })) as {
-      id: string
       name: string
       description: string
     }
@@ -75,7 +73,6 @@ export class RoleService {
   ): Promise<PaginationApiResponse> {
     const { data, count } = await this.roleRepository.gets({
       select: {
-        id: roles.id,
         name: roles.name,
         description: roles.description,
         created_at: roles.created_at,

@@ -20,7 +20,6 @@ export class PackingService {
 
   async getById(id: string): Promise<ApiResponse> {
     const select = {
-      id: packingItems.id,
       barcode: packingItems.barcode,
       operator_id: packingItems.operator_id,
       workstation_id: packingItems.workstation_id,
@@ -55,7 +54,6 @@ export class PackingService {
     request: PaginationRequest
   ): Promise<PaginationApiResponse> {
     const select = {
-      id: packingItems.id,
       barcode: packingItems.barcode,
       operator_id: packingItems.operator_id,
       workstation_id: packingItems.workstation_id,
@@ -181,7 +179,9 @@ export class PackingService {
       await this.packingRepository.update(id, {
         status: 'READY_FOR_BATCH',
       })
-      logging.info(`[Packing Service] Reset packing item ${id} from ERROR to READY_FOR_BATCH`)
+      logging.info(
+        `[Packing Service] Reset packing item ${id} from ERROR to READY_FOR_BATCH`
+      )
     }
 
     try {
@@ -196,7 +196,9 @@ export class PackingService {
       if (!response.ok) {
         const errorData = (await response.json()) as { message?: string }
         logging.error(
-          `[Packing Service] Worker returned error: ${JSON.stringify(errorData)}`
+          `[Packing Service] Worker returned error: ${JSON.stringify(
+            errorData
+          )}`
         )
         return {
           statusCode: response.status as 400 | 404 | 500,

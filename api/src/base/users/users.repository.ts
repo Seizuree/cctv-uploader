@@ -56,6 +56,8 @@ export class UserRepository {
   }
 
   async gets(query: UserQueryModel) {
+    const select = query.select || users
+
     const [countResult] = await db
       .select({ count: count() })
       .from(users)
@@ -63,7 +65,7 @@ export class UserRepository {
       .where(this.buildWhereConditions(query))
 
     let baseQuery = db
-      .select(query.select || users)
+      .select(select)
       .from(users)
       .leftJoin(roles, eq(users.role_id, roles.id))
       .where(this.buildWhereConditions(query))

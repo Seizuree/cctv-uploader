@@ -16,6 +16,6 @@ def get_camera_config(db: Session, camera_id: int) -> dict[str, str] | None:
 
     return {
         "base_url": camera.base_url,
-        "username": camera.username,
-        "password": decrypt_password(camera.encrypted_password),
+        "username": camera.cam_username,
+        "password": decrypt_password(camera.cam_password),
     }

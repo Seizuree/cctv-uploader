@@ -12,7 +12,7 @@ import type {
   UpdateCameraRequest,
   DeleteCameraRequest,
 } from './cameras.types'
-import { encryptPassword, decryptPassword } from '../../utils/encryption'
+import { encryptPassword } from '../../utils/encryption'
 import { cameras } from '../../connection/db/schemas'
 
 export class CameraService {
@@ -54,7 +54,6 @@ export class CameraService {
 
   async getById(id: string): Promise<ApiResponse> {
     const select = {
-      id: cameras.id,
       name: cameras.name,
       base_url: cameras.base_url,
       cam_username: cameras.cam_username,
@@ -67,7 +66,6 @@ export class CameraService {
       id,
       select,
     })) as {
-      id: string
       name: string
       base_url: string
       cam_username: string
@@ -98,7 +96,6 @@ export class CameraService {
   ): Promise<PaginationApiResponse> {
     const { data, count } = await this.cameraRepository.gets({
       select: {
-        id: cameras.id,
         name: cameras.name,
         base_url: cameras.base_url,
         cam_username: cameras.cam_username,
@@ -246,56 +243,6 @@ export class CameraService {
     return {
       statusCode: 200,
       message: CAMERA_MESSAGES.DELETED_SUCCESS,
-    }
-  }
-
-  // Internal method for worker to get decrypted password
-  async getWithPassword(id: string): Promise<{
-    camera: {
-      id: string
-      name: string
-      base_url: string
-      cam_username: string
-      created_at: Date
-      updated_at: Date
-    }
-    password: string
-  } | null> {
-    const camera = (await this.cameraRepository.get({
-      id,
-      select: {
-        id: cameras.id,
-        name: cameras.name,
-        base_url: cameras.base_url,
-        cam_username: cameras.cam_username,
-        cam_password: cameras.cam_password,
-        created_at: cameras.created_at,
-        updated_at: cameras.updated_at,
-      },
-    })) as {
-      id: string
-      name: string
-      base_url: string
-      cam_username: string
-      cam_password: string
-      created_at: Date
-      updated_at: Date
-    }
-
-    if (!camera) {
-      return null
-    }
-
-    return {
-      camera: {
-        id: camera.id,
-        name: camera.name,
-        base_url: camera.base_url,
-        cam_username: camera.cam_username,
-        created_at: camera.created_at,
-        updated_at: camera.updated_at,
-      },
-      password: decryptPassword(camera.cam_password),
     }
   }
 }

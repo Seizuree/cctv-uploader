@@ -114,7 +114,7 @@ Table packing_items {
   start_time     datetime            // waktu scan START
   end_time       datetime            // waktu scan END
 
-  status         enum_packing_status [not null, default: 'PENDING_START']
+  status         enum_packing_status [not null, default: 'PENDING']
 
   created_at     datetime            [not null]
   updated_at     datetime            [not null]

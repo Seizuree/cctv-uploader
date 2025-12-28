@@ -1,116 +1,61 @@
-import { eq, count, and, type SQL, sql } from 'drizzle-orm'
+import { eq, count, and, gte, lte, type SQL, sql } from 'drizzle-orm'
 import { db } from '../../connection/db'
 import {
   batchJobs,
   batchJobItems,
   packingItems,
-  type BatchJob,
-  type NewBatchJob,
-  type BatchJobItem,
-  type NewBatchJobItem,
-  type BatchJobStatus,
-  type BatchItemStatus,
 } from '../../connection/db/schemas'
 import type { PaginationQuery } from '../../types/request.types'
 import { applyPagination } from '../../utils/pagination'
+import type { BatchJobStatus } from './batches.types'
 
 export interface BatchQueryModel {
-  select?: {}
-  id?: number
+  id?: string
   status?: BatchJobStatus
   pagination?: PaginationQuery
+  startDate?: string
+  endDate?: string
 }
 
 export class BatchRepository {
-  async createJob(data: NewBatchJob) {
-    const [result] = await db.insert(batchJobs).values(data).returning()
-    return result
-  }
-
-  async createJobItem(data: NewBatchJobItem) {
-    const [result] = await db.insert(batchJobItems).values(data).returning()
-    return result
-  }
-
-  async updateJobStatus(
-    id: number,
-    status: BatchJobStatus,
-    stats?: { success_items?: number; failed_items?: number; error_message?: string }
-  ) {
-    const updateData: Partial<BatchJob> = {
-      status,
-      ...(status !== 'RUNNING' && { finished_at: new Date() }),
-      ...stats,
-    }
-
-    const [result] = await db
-      .update(batchJobs)
-      .set(updateData)
-      .where(eq(batchJobs.id, id))
-      .returning()
-    return result
-  }
-
-  async updateItemStatus(
-    id: number,
-    status: BatchItemStatus,
-    errorMessage?: string
-  ) {
-    const updateData: Partial<BatchJobItem> = {
-      status,
-      ...(status === 'PROCESSING' && { started_at: new Date() }),
-      ...(status === 'SUCCESS' || status === 'FAILED'
-        ? { finished_at: new Date() }
-        : {}),
-      ...(errorMessage && { error_message: errorMessage }),
-    }
-
-    const [result] = await db
-      .update(batchJobItems)
-      .set(updateData)
-      .where(eq(batchJobItems.id, id))
-      .returning()
-    return result
-  }
-
+  // Get single batch dengan items (2 query internal)
   async get(query: BatchQueryModel) {
-    const select = query.select || batchJobs
-
-    const [result] = await db
-      .select(select)
+    // Query 1: Get batch
+    const [batch] = await db
+      .select({
+        id: batchJobs.id,
+        status: batchJobs.status,
+        started_at: batchJobs.started_at,
+        finished_at: batchJobs.finished_at,
+        total_items: batchJobs.total_items,
+        success_items: batchJobs.success_items,
+        failed_items: batchJobs.failed_items,
+        error_message: batchJobs.error_message,
+      })
       .from(batchJobs)
       .where(this.buildWhereConditions(query))
       .limit(1)
-    return result
-  }
 
-  async getWithItems(id: number) {
-    const [job] = await db
-      .select()
-      .from(batchJobs)
-      .where(eq(batchJobs.id, id))
-      .limit(1)
+    if (!batch) return null
 
-    if (!job) return null
-
+    // Query 2: Get items dengan barcode
     const items = await db
-      .select()
+      .select({
+        id: batchJobItems.id,
+        status: batchJobItems.status,
+        error_message: batchJobItems.error_message,
+        started_at: batchJobItems.started_at,
+        finished_at: batchJobItems.finished_at,
+        barcode: packingItems.barcode,
+      })
       .from(batchJobItems)
       .leftJoin(packingItems, eq(batchJobItems.packing_item_id, packingItems.id))
-      .where(eq(batchJobItems.batch_job_id, id))
+      .where(eq(batchJobItems.batch_job_id, query.id!))
 
-    return { job, items }
+    return { ...batch, items }
   }
 
-  async getRunningJob() {
-    const [result] = await db
-      .select()
-      .from(batchJobs)
-      .where(eq(batchJobs.status, 'RUNNING'))
-      .limit(1)
-    return result
-  }
-
+  // Get list batches (tanpa items)
   async gets(query: BatchQueryModel) {
     const [countResult] = await db
       .select({ count: count() })
@@ -118,7 +63,15 @@ export class BatchRepository {
       .where(this.buildWhereConditions(query))
 
     let baseQuery = db
-      .select(query.select || batchJobs)
+      .select({
+        id: batchJobs.id,
+        status: batchJobs.status,
+        started_at: batchJobs.started_at,
+        finished_at: batchJobs.finished_at,
+        total_items: batchJobs.total_items,
+        success_items: batchJobs.success_items,
+        failed_items: batchJobs.failed_items,
+      })
       .from(batchJobs)
       .where(this.buildWhereConditions(query))
       .$dynamic()
@@ -150,6 +103,14 @@ export class BatchRepository {
       conditions.push(eq(batchJobs.status, query.status))
     }
 
+    if (query.startDate) {
+      conditions.push(gte(batchJobs.started_at, new Date(query.startDate)))
+    }
+
+    if (query.endDate) {
+      conditions.push(lte(batchJobs.started_at, new Date(query.endDate)))
+    }
+
     return conditions.length ? and(...conditions) : undefined
   }
 
@@ -165,6 +126,18 @@ export class BatchRepository {
         return direction === 'asc'
           ? sql`${batchJobs.status} asc`
           : sql`${batchJobs.status} desc`
+      case 'total_items':
+        return direction === 'asc'
+          ? sql`${batchJobs.total_items} asc`
+          : sql`${batchJobs.total_items} desc`
+      case 'success_items':
+        return direction === 'asc'
+          ? sql`${batchJobs.success_items} asc`
+          : sql`${batchJobs.success_items} desc`
+      case 'failed_items':
+        return direction === 'asc'
+          ? sql`${batchJobs.failed_items} asc`
+          : sql`${batchJobs.failed_items} desc`
       default:
         return direction === 'asc'
           ? sql`${batchJobs.started_at} asc`

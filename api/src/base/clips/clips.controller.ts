@@ -7,12 +7,19 @@ import clipsService from './clips.service'
 import { logging } from '../../logger'
 import { PaginationSchema } from '../../types/request.types'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export class ClipsController {
   async getById(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload')?.id
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
 
-      if (isNaN(id)) {
+      const id = c.req.param('id')
+
+      if (!id || !UUID_REGEX.test(id)) {
         return c.json(createErrorResponse('Invalid clip ID', 400), 400)
       }
 
@@ -41,6 +48,11 @@ export class ClipsController {
 
   async getWithPagination(c: Context) {
     try {
+      const userId = c.get('jwtPayload')?.id
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
+
       const query = c.req.query()
       const validationResult = PaginationSchema.safeParse({
         page: query.page,
@@ -72,9 +84,14 @@ export class ClipsController {
 
   async getSignedUrl(c: Context) {
     try {
-      const id = parseInt(c.req.param('id'))
+      const userId = c.get('jwtPayload')?.id
+      if (!userId) {
+        return c.json(createErrorResponse('Unauthorized', 401), 401)
+      }
 
-      if (isNaN(id)) {
+      const id = c.req.param('id')
+
+      if (!id || !UUID_REGEX.test(id)) {
         return c.json(createErrorResponse('Invalid clip ID', 400), 400)
       }
 
